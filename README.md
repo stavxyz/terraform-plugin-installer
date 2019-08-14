@@ -3,6 +3,8 @@ A script to manage (future...) and install terraform plugins
 
 Installs plugins as `terraform-provider-<NAME>_vX.Y.Z` to `~/.terraform.d/plugins`
 
+See more on third party plugin installation here: https://www.terraform.io/docs/configuration/providers.html#third-party-plugins
+
 ## Usage
 
 ```
