@@ -19,7 +19,7 @@ _pushd () {
 }
 
 _popd () {
-    command popd "$@" > /dev/null
+    command popd > /dev/null
 }
 
 REPOSITORY="${1:-}"
@@ -27,7 +27,7 @@ if [[ -z ${REPOSITORY} ]]; then
   errxit "Full plugin name required e.g. 'github.com/phillbaker/terraform-provider-mailgunv3'"
 fi
 
-PLUGIN="$(basename ${REPOSITORY})"
+PLUGIN="$(basename "${REPOSITORY}")"
 PLUGIN_SHORTNAME="${PLUGIN##*-}"
 
 if [[ ! "${REPOSITORY}" =~ "://" ]]; then
@@ -45,19 +45,18 @@ echo "Working in tmpdir ${TMPWORKDIR}"
 _pushd $TMPWORKDIR
 # clone plugin
 _GITDIR="tf-installer-clone-${PLUGIN_SHORTNAME}"
-git clone --quiet --depth 1 ${REPOSITORY} ${_GITDIR}
-_pushd ${_GITDIR}
+git clone --quiet --depth 1 "${REPOSITORY}" "${_GITDIR}"
+_pushd "${_GITDIR}"
 
 
 git fetch --quiet --tags --update-head-ok
 
-VERSION="${2:-`get_latest_version`}"
+VERSION="${2:-$(get_latest_version)}"
 
 echo "Building ${PLUGIN} version ${VERSION}"
-git checkout ${VERSION} --quiet --force
+git checkout "${VERSION}" --quiet --force
 
 go build -o "${HOME}/.terraform.d/plugins/${PLUGIN}_${VERSION}"
 echo "Installing ${PLUGIN} version ${VERSION}"
 echo "Terraform provider '${PLUGIN_SHORTNAME}' version ${VERSION} has been installed into ~/.terraform.d/"
-_popd
-_popd
+_popd && _popd
