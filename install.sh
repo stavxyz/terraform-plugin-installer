@@ -14,6 +14,14 @@ errxit ()
   exit 1
 }
 
+_pushd () {
+    command pushd "$@" > /dev/null
+}
+
+_popd () {
+    command popd "$@" > /dev/null
+}
+
 REPOSITORY="${1:-}"
 if [[ -z ${REPOSITORY} ]]; then
   errxit "Full plugin name required e.g. 'github.com/phillbaker/terraform-provider-mailgunv3'"
@@ -27,7 +35,6 @@ if [[ ! "${REPOSITORY}" =~ "://" ]]; then
 fi
 
 function get_latest_version {
-  git fetch --tags --update-head-ok --progress ${REPOSITORY}
   VERSIONS=($(git tag --list --format='%(refname:lstrip=2)' | grep -e '^v.*[0-9]$' | sort -r))
   >&2 echo "Available Versions: ${VERSIONS[*]} (selecting latest)"
   echo "${VERSIONS[0]}"
@@ -35,22 +42,22 @@ function get_latest_version {
 
 TMPWORKDIR=$(mktemp -t='tf-installer' -d || errxit "Failed to create tmpdir.")
 echo "Working in tmpdir ${TMPWORKDIR}"
-pushd $TMPWORKDIR
+_pushd $TMPWORKDIR
 # clone plugin
 _GITDIR="tf-installer-clone-${PLUGIN_SHORTNAME}"
-git clone --depth 1 ${REPOSITORY} ${_GITDIR}
-pushd ${_GITDIR}
+git clone --quiet --depth 1 ${REPOSITORY} ${_GITDIR}
+_pushd ${_GITDIR}
 
+
+git fetch --quiet --tags --update-head-ok
 
 VERSION="${2:-`get_latest_version`}"
 
-git fetch --tags --update-head-ok --progress
-
 echo "Building ${PLUGIN} version ${VERSION}"
-git checkout ${VERSION} --force
+git checkout ${VERSION} --quiet --force
 
 go build -o "${HOME}/.terraform.d/plugins/${PLUGIN}_${VERSION}"
 echo "Installing ${PLUGIN} version ${VERSION}"
-echo "Terraform provider ${PLUGIN_SHORTNAME} version ${VERSION} has been installed to ~/.terraform.d/"
-popd
-popd
+echo "Terraform provider '${PLUGIN_SHORTNAME}' version ${VERSION} has been installed into ~/.terraform.d/"
+_popd
+_popd
