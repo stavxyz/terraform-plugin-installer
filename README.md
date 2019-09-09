@@ -27,7 +27,7 @@ See more on third party plugin installation here: https://www.terraform.io/docs/
 
 Note:
 
-  * If the `revision/tag` _is_ the version, supplying the `version` argument is not necessary
+  * If the `revision/tag` _**is**_ the version, supplying the `version` argument is not necessary
   * If no `revision/tag` is provided, the latest release matching the semver regex (or if none, `HEAD`) will be built and installed.
 
 
