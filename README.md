@@ -5,9 +5,14 @@ Installs plugins as `terraform-provider-<NAME>_vX.Y.Z` to `~/.terraform.d/plugin
 
 See more on third party plugin installation here: https://www.terraform.io/docs/configuration/providers.html#third-party-plugins
 
+## Requirements
+
+1) [golang](https://golang.org/doc/install) (for `go build`)
+
 ## Features
 
 * Install from any git repository (local or remote)
+* Clones/builds in a temporary directory (using `mktemp`)
 * Install any specified revision/version (branch, tag, or git sha)
 * Install _as_ any version
   * You can even install a revision whose git tag is a valid semver as a completely different semver, though I'm not sure why you'd want to do this :)
