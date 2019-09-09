@@ -25,7 +25,11 @@ See more on third party plugin installation here: https://www.terraform.io/docs/
 ./install.sh <repository_url> <revision/tag> <version>
 ```
 
-If no version/tag is provided, the latest release (or if none, `HEAD`) will be built and installed.
+Note:
+
+  * If the `revision/tag` _is_ the version, supplying the `version` argument is not necessary
+  * If no `revision/tag` is provided, the latest release matching the semver regex (or if none, `HEAD`) will be built and installed.
+
 
 ## Example
 
