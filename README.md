@@ -1,5 +1,5 @@
 # terrraform-plugin-installer
-It's a script to install third party terraform plugins! Hassle free! How neat is that?
+It's a script to install third party terraform plugins and providers! Hassle free! How neat is that?
 
 Installs plugins as `terraform-provider-<NAME>_vX.Y.Z` to `~/.terraform.d/plugins`
 
