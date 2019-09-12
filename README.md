@@ -22,7 +22,7 @@ See more on third party plugin installation here: https://www.terraform.io/docs/
 ## Usage
 
 ```
-./install.sh <repository_url> <revision/tag> <version>
+./install.sh <repository_url_or_path> [ <revision/tag> ] [ <version> ]
 ```
 
 Note:
