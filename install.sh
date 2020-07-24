@@ -66,7 +66,7 @@ function get_latest_version {
   fi
 }
 
-TMPWORKDIR=$(mktemp -t='tf-installer' -d || errxit "Failed to create tmpdir.")
+TMPWORKDIR=$(mktemp -t 'tf-installer.XXXXXX' -d || errxit "Failed to create tmpdir.")
 echo "Working in tmpdir ${TMPWORKDIR}"
 _pushd "$TMPWORKDIR"
 # clone plugin
