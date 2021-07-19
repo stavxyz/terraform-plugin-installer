@@ -1,17 +1,34 @@
 #!/usr/bin/env bash
 
+# Usage:
+# ./install.sh github.com/owner/plugin <revision> <version>
+#
+# If <revision> matches a git tag specifying a semantic version
+# the plugin will  be installed *as* that version.
+#
+# If the <version> argument is provided, the plugin will
+# be installed as the version specified
+#
+# <revision> and <version> are not required, by default
+# this script will install the latest version
+#
+# Installing from local paths is also supported, e.g.
+#
+#  ./install.sh /path/to/tf-plugin
+
 # Undefined variables are errors.
-set -euo pipefail
+set -euoE pipefail
 
 errcho ()
 {
-    echo "$@" 1>&2
+    printf "%s\n" "$@" 1>&2
 }
 
 errxit ()
 {
   errcho "$@"
-  exit 1
+  # shellcheck disable=SC2119
+  errcleanup
 }
 
 _pushd () {
@@ -21,6 +38,52 @@ _pushd () {
 _popd () {
     command popd > /dev/null
 }
+
+_cmd_exists () {
+  if ! type "$*" &> /dev/null; then
+    errcho "$* command not installed"
+    return 1
+  fi
+}
+
+_realpath () {
+    if _cmd_exists realpath; then
+      realpath "$@"
+      return $?
+    else
+      readlink -f "$@"
+      return $?
+    fi
+}
+
+cleanup() {
+  if [[ -d ${_tfpi_tmp_workdir:-} ]]; then
+    # shellcheck disable=SC2086
+    echo "Cleaning up tmp workdir [ ${_tfpi_tmp_workdir} ]"
+    rm -rf "${_tfpi_tmp_workdir}"
+    echo "🛀"
+  fi
+}
+
+# shellcheck disable=SC2120
+errcleanup() {
+  errcho "⛔️ terraform plugin installer execution failed."
+  if [ -n "${1:-}" ]; then
+    errcho "⏩ Error at line ${1}."
+  fi
+  cleanup
+  exit 1
+}
+
+intcleanup() {
+  errcho "🍿 Script discontinued."
+  cleanup
+  exit 1
+}
+
+trap 'errcleanup ${LINENO}' ERR
+trap 'intcleanup' SIGHUP SIGINT SIGTERM
+
 
 # The following option is not used, *unless*:
 #    1) you want to install a valid version git ref
@@ -42,21 +105,41 @@ if [[ -z ${REPOSITORY} ]]; then
   errxit "Full plugin name required e.g. 'github.com/phillbaker/terraform-provider-mailgunv3'"
 fi
 
-PLUGIN="$(basename "${REPOSITORY}")"
-PLUGIN_SHORTNAME="${PLUGIN##*-}"
-
 if [[ -d "${REPOSITORY}" ]]; then
-  echo "Repository is to a local path."
-elif [[ ! "${REPOSITORY}" =~ (:\/\/)|(^git@) ]]; then
-   # if protocol not specified, use https
-   # github and gitlab use 'git' user. address other use cases if/when they arise.
-   REPOSITORY="https://"${REPOSITORY}
+  echo "Source repository [ ${REPOSITORY} ] is to a local path. Attempting to discover remote URL."
+  _pushd "$(_realpath "${REPOSITORY}")"
+  # WARNING: WITHIN THIS BLOCK YOU ARE NOW IN A LOCAL REPOSITORY THAT SOMEONE PROBABLY CARES ABOUT.
+  #          PERFORM EXCLUSIVELY READ-ONLY COMMANDS.
+  _current_remote=$(git branch -vv --no-color | grep -e '^\*' | sed -E 's/.*\[(.*)\/[a-zA-Z0-9\ \:\,\_\.-]+\].*/\1/')
+  REPOSITORY_URL=$(git remote get-url "${_current_remote}")
+  echo "Discovered source url from local repo: ${REPOSITORY_URL}"
+  _popd
+else
+  # If target is not a local filesytem path, check scheme
+  if [[ ! "${REPOSITORY}" =~ (:\/\/)|(^git@) ]]; then
+    # if the protocol/scheme is not specified, use 'https'
+    # github and gitlab use 'git' user. address other use cases if/when they arise.
+    REPOSITORY="https://"${REPOSITORY}
+    REPOSITORY_URL="${REPOSITORY}"
+  fi
 fi
+
+REPO_REGEX='s/(.*:\/\/|^git@)(.*)([\/:]{1})([a-zA-Z0-9_\.-]{1,})([\/]{1})([a-zA-Z0-9_\.-]{1,}$)'
+
+# Remove trailing .git if present
+REPOSITORY_URL="${REPOSITORY_URL/%\.git/''}"
+# the 2nd sed here is to parse out any user:<token> notations
+REPOSITORY_URL_DOMAIN=$(echo "${REPOSITORY_URL}" | sed -E "${REPO_REGEX}"'/\2/' | sed -E "s/(^[a-zA-Z0-9_-]{0,38}\:{1})([a-zA-Z0-9_]{5,40})(\@?)"'//')
+REPOSITORY_OWNER=$(echo "${REPOSITORY_URL}" | sed -E "${REPO_REGEX}"'/\4/')
+REPOSITORY_PROJECT_NAME=$(echo "${REPOSITORY_URL}" | sed -E "${REPO_REGEX}"'/\6/')
+PLUGIN_SHORTNAME=${REPOSITORY_PROJECT_NAME#"terraform-provider-"}
+PLUGIN_SHORTNAME=${PLUGIN_SHORTNAME#"terraform-plugin-"}
+
 
 echo "Installing from ${REPOSITORY}"
 
 function get_latest_version {
-  VERSIONS=($(git tag --list --format='%(refname:lstrip=2)' | grep -e ${V_VERSION_REGEX} | sort -r))
+  VERSIONS=($(git tag --list --format='%(refname:lstrip=2)' | grep -e "${V_VERSION_REGEX}" | sort -r))
   if [ ${#VERSIONS[@]} -eq 0 ]; then
     errcho "No proper version tags found at ${REPOSITORY}. Using ${INSTALL_AS_VERSION}"
     echo "${INSTALL_AS_VERSION}"
@@ -66,9 +149,10 @@ function get_latest_version {
   fi
 }
 
-TMPWORKDIR=$(mktemp -t 'tf-installer.XXXXXX' -d || errxit "Failed to create tmpdir.")
-echo "Working in tmpdir ${TMPWORKDIR}"
-_pushd "$TMPWORKDIR"
+_tfpi_tmp_workdir=$(mktemp -t='tfpi-workdir.XXXXXX' -d || errxit "Failed to create tmpdir.")
+export _tfpi_tmp_workdir
+echo "Working in tmpdir ${_tfpi_tmp_workdir}"
+_pushd "${_tfpi_tmp_workdir}"
 # clone plugin
 _GITDIR="tf-installer-clone-${PLUGIN_SHORTNAME}"
 git clone --quiet --depth 1 "${REPOSITORY}" "${_GITDIR}"
@@ -82,7 +166,7 @@ REVISION="${2:-$(get_latest_version)}"
 # TODO(maybe): If revision was specified and matches VERSION_REGEX
 #              but does not match V_VERSION_REGEX, prepend a 'v'.
 
-echo "Building ${PLUGIN} version ${REVISION}"
+echo "Building ${REPOSITORY_PROJECT_NAME} version ${REVISION}"
 _USING_HEAD=false
 git checkout "${REVISION}" --quiet --force || _USING_HEAD=true
 
@@ -104,7 +188,23 @@ if ${_USING_HEAD}; then
   echo "Installing HEAD as ${VERSION}."
 fi
 
-go build -o "${HOME}/.terraform.d/plugins/${PLUGIN}_${VERSION}"
-echo "Installing ${PLUGIN} version ${VERSION}"
-echo "Terraform provider '${PLUGIN_SHORTNAME}' version ${VERSION} has been installed into ~/.terraform.d/"
-_popd && _popd
+case "$OSTYPE" in
+  darwin*)   _PLATFORM="darwin_amd64" ;;
+  solaris*)  _PLATFORM="solaris_amd64" ;;
+  linux*)    _PLATFORM="linux_amd64" ;;
+  cygwin*)   _PLATFORM="windows_amd64" ;;
+  *arm*)     _PLATFORM="linux_arm64" ;;
+  *)         errxit "Unknown OSTYPE: ${OSTYPE}" ;;
+esac
+
+# remove 'v' prefix if present for version dir in path
+_version=${VERSION#"v"}
+# path: HOSTNAME/NAMESPACE/TYPE/VERSION/TARGET
+# e.g. -> /.terraform.d/plugins/github.internal.company.com/company/company_project/0.12.6/darwin_amd64
+PLUGIN_TARGET="${HOME}/.terraform.d/plugins/${REPOSITORY_URL_DOMAIN}/${REPOSITORY_OWNER}/${PLUGIN_SHORTNAME}/${_version}/${_PLATFORM}/"
+mkdir -p "${PLUGIN_TARGET}"
+
+go build -o "${PLUGIN_TARGET}/${REPOSITORY_PROJECT_NAME}_${VERSION}"
+echo "Installing ${REPOSITORY_PROJECT_NAME} version ${VERSION}"
+echo "Terraform provider '${PLUGIN_SHORTNAME}' version ${VERSION} has been installed into ${PLUGIN_TARGET}"
+_popd && _popd && cleanup
