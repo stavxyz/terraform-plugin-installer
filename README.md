@@ -12,7 +12,7 @@ See more on third party plugin installation here: https://www.terraform.io/docs/
 ## Features
 
 * Install from any git repository (local or remote)
-* Clones/builds in a temporary directory (using `mktemp`)
+* Clones/builds in a temporary directory (using `mktemp`) and cleans up when complete
 * Install any specified revision/version (branch, tag, or git sha)
 * Install _as_ any version
   * You can even install a revision whose git tag is a valid semver as a completely different semver, though I'm not sure why you'd want to do this :)
