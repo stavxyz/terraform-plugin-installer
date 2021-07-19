@@ -61,5 +61,5 @@ provider "mailgunv3" {
 ## If you like `curl`ing to `sh`
 
 ```
-curl https://raw.githubusercontent.com/samstav/terraform-plugin-installer/master/install.sh | bash -s -- github.com/phillbaker/terraform-provider-mailgunv3
+curl https://raw.githubusercontent.com/samstav/terraform-plugin-installer/main/install.sh | bash -s -- github.com/phillbaker/terraform-provider-mailgunv3
 ```
