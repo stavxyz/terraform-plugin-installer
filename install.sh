@@ -31,6 +31,13 @@ errxit ()
   errcleanup
 }
 
+debug ()
+{
+  if [ -n ${TF_PLUGIN_INSTALLER_DEBUG:-''} ]; then
+    errcho "$@"
+  fi
+}
+
 _pushd () {
     command pushd "$@" > /dev/null
 }
@@ -121,6 +128,9 @@ else
     # github and gitlab use 'git' user. address other use cases if/when they arise.
     REPOSITORY="https://"${REPOSITORY}
     REPOSITORY_URL="${REPOSITORY}"
+  else
+    # Provided url already includes scheme
+    REPOSITORY_URL="${REPOSITORY}"
   fi
 fi
 
@@ -135,6 +145,12 @@ REPOSITORY_PROJECT_NAME=$(echo "${REPOSITORY_URL}" | sed -E "${REPO_REGEX}"'/\6/
 PLUGIN_SHORTNAME=${REPOSITORY_PROJECT_NAME#"terraform-provider-"}
 PLUGIN_SHORTNAME=${PLUGIN_SHORTNAME#"terraform-plugin-"}
 
+debug "Provided Repository URL: ${REPOSITORY}"
+debug "Repository URL: ${REPOSITORY_URL}"
+debug "Repository URL Domain: ${REPOSITORY_URL_DOMAIN}"
+debug "Repository Owner: ${REPOSITORY_OWNER}"
+debug "Repository Project Name: ${REPOSITORY_PROJECT_NAME}"
+debug "Plugin Shortname: ${PLUGIN_SHORTNAME}"
 
 echo "Installing from ${REPOSITORY}"
 
@@ -184,6 +200,8 @@ if ! [[ "${VERSION}" =~ ${V_VERSION_REGEX} ]]; then
   errxit "${VERSION} is not a valid sem version ( ${V_VERSION_REGEX})"
 fi
 
+debug "Version: ${VERSION}"
+
 if ${_USING_HEAD}; then
   echo "Installing HEAD as ${VERSION}."
 fi
@@ -196,6 +214,8 @@ case "$OSTYPE" in
   *arm*)     _PLATFORM="linux_arm64" ;;
   *)         errxit "Unknown OSTYPE: ${OSTYPE}" ;;
 esac
+
+debug "Platform: ${_PLATFORM}"
 
 # remove 'v' prefix if present for version dir in path
 _version=${VERSION#"v"}
